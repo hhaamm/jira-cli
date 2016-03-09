@@ -1,0 +1,11 @@
+#!/usr/bin/env node
+var semver = require('semver');
+
+if (!semver.satisfies(process.versions.node, '<2')) {
+    console.log('Node version should be ~ 0.10');
+    process.exit();
+}
+
+var JiraCli = require("./jira-cli.js");
+var jiraCli = new JiraCli(process.argv);
+jiraCli.run();

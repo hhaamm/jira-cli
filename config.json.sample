@@ -1,0 +1,14 @@
+{
+    "credentials": {
+        "host": "jira.xxxxxxxx",
+        "user": "xxxxxxxxxxxxx",
+        "password": "xxxxxxxxx"
+    },
+    "defaultEpic": "xxx-xxx",
+    "defaultProjectId": "1234",
+    "epics": {
+        "1111": "xxx-xxx",
+        "2222": "xxx-xxx"
+    },
+    "board": ""
+}
