@@ -83,7 +83,7 @@ JiraCli.prototype.newissueCommand = function() {
 }
 
 JiraCli.prototype.listCommand = function() {
-    api.searchJira("project = APM and assignee = hmassaroli and status in (open, 'In Progress', 'Code Review')", {fields: ["summary", "status"]}, function(error, results) {
+    api.searchJira("project = " + nconf.get("defaultProjectName") + " and assignee = " + nconf.get("credentials:user") + " and status in (open, 'In Progress', 'Code Review')", {fields: ["summary", "status"]}, function(error, results) {
 
         if (error) {
             console.log(error);

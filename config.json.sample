@@ -6,6 +6,7 @@
     },
     "defaultEpic": "xxx-xxx",
     "defaultProjectId": "1234",
+    "defaultProjectName": "lala",
     "epics": {
         "1111": "xxx-xxx",
         "2222": "xxx-xxx"
