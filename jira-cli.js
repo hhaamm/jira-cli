@@ -1,6 +1,7 @@
 var JiraApi = require('jira').JiraApi,
     nconf   = require("nconf"),
-    sh = require('execSync');
+    sh = require('execSync'),
+    exec = require('child_process').exec;
 
 nconf.file({
     file: __dirname + "/config.json"
@@ -15,6 +16,13 @@ var JiraCli = function(args) {
     args.shift(); // Removes jira-cli
     this.command = args.shift();
     this.cliParams = args;
+
+    if (this.cliParams[ this.cliParams.length -1 ] == "open") {
+        this.cliParams.pop();
+        this.openUrl = true;
+    } else {
+        this.openUrl = false;
+    }
 }
 
 JiraCli.prototype.printHelp = function() {
@@ -31,17 +39,37 @@ JiraCli.prototype.run = function() {
 
     if (this[this.command + "Command"]) {
         this[this.command + "Command"].call(this, this.cliParams);
+
+        if (this.openUrl) {
+            exec("firefox https://jira.corp.appnexus.com/browse/" + this.issueKey, function(error, stdout, stderr) {
+
+            });
+        }
     } else {
         console.log("Unknown command " + this.command);
         process.exit(1);
     }
 }
 
+// ------ Commands section ------
+
 JiraCli.prototype.newissueCommand = function() {
     var name = this.cliParams[0];
 
     var assignee, reporter;
     assignee = reporter = this.cliParams[1];
+    var epic = null;
+
+    if (this.cliParams.length == 3) {
+        var epics = nconf.get("epics");
+        if (epics[this.cliParams[2]]) {
+            // An alias was used
+            epic = epics[this.cliParams[2]];
+        } else {
+            // The param is the epic key
+            epic = this.cliParams[2];
+        }
+    }
 
     var issue = {
         "fields" : {
@@ -69,9 +97,9 @@ JiraCli.prototype.newissueCommand = function() {
         if (!error) {
             console.log(response.key);
 
-            if (process.argv.length == 4) {
+            if (epic) {
                 // We set epic
-                self.setEpic([response.key], process.argv[3]);
+                self.__setEpic([response.key], epic);
             }
 
             process.exit(0);
@@ -83,7 +111,30 @@ JiraCli.prototype.newissueCommand = function() {
 }
 
 JiraCli.prototype.listCommand = function() {
-    api.searchJira("project = " + nconf.get("defaultProjectName") + " and assignee = " + nconf.get("credentials:user") + " and status in (open, 'In Progress', 'Code Review')", {fields: ["summary", "status"]}, function(error, results) {
+    var statuses = "open, 'In Progress', 'Code Review'";
+    if (this.cliParams.length) {
+        var statusDictionary = {
+            "open": "open",
+            "progress": "'In Progress'",
+            "review": "'Code Review'"
+        };
+
+        statuses = statusDictionary[this.cliParams[0]];
+
+        if (!statuses) {
+            var statusKeys = [];
+            for (var key in statusDictionary) {
+                statusKeys.push(key);
+            }
+            console.log(statusKeys.join(", "));
+            
+            console.log("No status for key " + this.cliParams + ". Possible keys: " + statusKeys);
+            
+            process.exit(1);
+        }
+    }
+    
+    api.searchJira("project = " + nconf.get("defaultProjectName") + " and assignee = " + nconf.get("credentials:user") + " and status in (" + statuses + ")", {fields: ["summary", "status"]}, function(error, results) {
 
         if (error) {
             console.log(error);
@@ -100,14 +151,31 @@ JiraCli.prototype.listCommand = function() {
 /**
  * It changes the status of an issue
  * Find out transitions: curl -D- -u <USER>:<PASS> <JIRA_URL>:<JIRA_PORT>/rest/api/latest/issue/<JIRA_ISSUE>/transitions?expand=transitions.fields
+ * or
+ * curl -D- -u <USER>:<PASS> https://jira.corp.appnexus.com/rest/api/2/statuscategory/2
  */
 JiraCli.prototype.statusCommand = function() {
     var issue = this.cliParams[0];
     var status = this.cliParams[1];
 
+    // Category ids
+    var categoryIds = {
+        "progress": 4,
+        "new": 2,
+        "done": 3,
+        "review": 6
+    };
+
+    var statusId = categoryIds[status];
+
+    if (!statusId) {
+        console.log("ERROR: no category id for '" + status + "' status");
+        process.exit(1);
+    }
+
     var issueTransition = {
         "transition": {
-            "id": "4" // In Progress
+            "id": statusId
         } //,
         // "update": {
         //     "comment": [
@@ -159,7 +227,16 @@ JiraCli.prototype.focusCommand = function() {
 
 }
 
-JiraCli.prototype.setEpic = function(issueKeys, epicKey) {
+/**
+ * Sets the epic of a certain Issue
+ */
+JiraCli.prototype.epicCommand = function() {
+
+}
+
+// ------ Utils section ------
+
+JiraCli.prototype.__setEpic = function(issueKeys, epicKey) {
     // Set Epic link
     // https://confluence.atlassian.com/display/JIRAKB/Set+the+%27Epic+Link%27+via+REST+call
 
@@ -168,7 +245,7 @@ JiraCli.prototype.setEpic = function(issueKeys, epicKey) {
         "issueKeys": issueKeys
     });
 
-    sh.run("curl --user " + this.user + ":" + this.password + " -d '" + json +"' -X PUT -H \"Content-Type: application/json\" https://" + this.host + "/rest/greenhopper/1.0/epics/" + epicKey + "/add");
+    sh.run("curl --user " + nconf.get("credentials:user") + ":" + nconf.get("credentials:password") + " -d '" + json +"' -X PUT -H \"Content-Type: application/json\" https://" + nconf.get("credentials:host") + "/rest/greenhopper/1.0/epics/" + epicKey + "/add");
 };
 
 module.exports = JiraCli;
