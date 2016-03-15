@@ -53,6 +53,14 @@ JiraCli.prototype.run = function() {
 
 // ------ Commands section ------
 
+JiraCli.prototype.openCommand = function() {
+    var issueKey = this.cliParams[0];
+    
+    exec("firefox https://jira.corp.appnexus.com/browse/" + issueKey, function(error, stdout, stderr) {
+
+    });
+}
+
 JiraCli.prototype.newissueCommand = function() {
     var name = this.cliParams[0];
 
