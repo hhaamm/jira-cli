@@ -27,23 +27,48 @@ var JiraCli = function(args) {
 
 JiraCli.prototype.printHelp = function() {
     console.log("Use: jira-cli <command>");
-    console.log("              newissue");
-    console.log("              list");
+
+    for(var prop in JiraCli.prototype) {
+        if (prop.endsWith("Command")) {
+            console.log("              " + prop.replace("Command", ""));
+        }
+    }
 }
 
 JiraCli.prototype.run = function() {
+    // TODO: move this to a unit test
+    // It checks that all commands have a help description
+    for (var prop in JiraCli.prototype) {
+        if (prop.endsWith("Command") && this[prop].help == undefined) {
+            console.log("Error: no help function for " + prop);
+            return;
+        }
+    }
+    
     if (!this.command) {
         this.printHelp();
         return;
     }
 
     if (this[this.command + "Command"]) {
-        this[this.command + "Command"].call(this, this.cliParams);
 
-        if (this.openUrl) {
-            exec("firefox https://jira.corp.appnexus.com/browse/" + this.issueKey, function(error, stdout, stderr) {
+        if (this.cliParams.length && (this.cliParams[0] == "-h" || this.cliParams[0] == "--help")) {
+            // We show help for this command
 
-            });
+            console.log("Help: " + this.command + " command");
+            this[this.command + "Command"].help.call(this);
+            
+            return;
+        } else {
+            // No help, we want to execute the command
+            this[this.command + "Command"].call(this, this.cliParams);
+
+            if (this.openUrl) {
+                exec("firefox https://jira.corp.appnexus.com/browse/" + this.issueKey, function(error, stdout, stderr) {
+                    
+                });
+
+            }
         }
     } else {
         console.log("Unknown command " + this.command);
@@ -59,6 +84,11 @@ JiraCli.prototype.openCommand = function() {
     exec("firefox https://jira.corp.appnexus.com/browse/" + issueKey, function(error, stdout, stderr) {
 
     });
+}
+
+JiraCli.prototype.openCommand.help = function() {
+    console.log("Opens a Jira key in Firefox");
+    console.log("Use: jira-cli open XXX-XXX");
 }
 
 JiraCli.prototype.newissueCommand = function() {
@@ -118,6 +148,11 @@ JiraCli.prototype.newissueCommand = function() {
     });
 }
 
+JiraCli.prototype.newissueCommand.help = function() {
+    console.log("It creates a new Jira issue");
+    console.log("Use: jira-cli newissue <name> <assignee> [<epic>]");
+}
+
 JiraCli.prototype.listCommand = function() {
     var statuses = "open, 'In Progress', 'Code Review'";
     if (this.cliParams.length) {
@@ -154,6 +189,11 @@ JiraCli.prototype.listCommand = function() {
             console.log(results.issues[i].key + " | " + String("            " + results.issues[i].fields.status.name).slice(-11) + " | " + results.issues[i].fields.summary);
         }
     });
+}
+
+JiraCli.prototype.listCommand.help = function() {
+    console.log("Lists the issues assigned to you");
+    console.log("Use: jira-cli list [open|progress|review]");
 }
 
 /**
@@ -205,6 +245,11 @@ JiraCli.prototype.statusCommand = function() {
     });
 }
 
+JiraCli.prototype.statusCommand.help = function() {
+    console.log("It changes the status of an issue");
+    console.log("IT DOESN'T WORK RIGHT NOW");
+}
+
 /**
  * It shows the description of an Issue.
  */
@@ -218,9 +263,19 @@ JiraCli.prototype.describeCommand = function() {
     });
 }
 
+JiraCli.prototype.describeCommand.help = function() {
+    console.log("It prints a more detailed view of an issue");
+    console.log("Use: jira-cli describe <Jira key>");
+}
+
 JiraCli.prototype.discussionCommand = function() {
     var issue = this.cliParams[0];
 
+}
+
+JiraCli.prototype.discussionCommand.help = function() {
+    console.log("It shows the comments in an issue");
+    console.log("NOT IMPLEMENTED");
 }
 
 JiraCli.prototype.commentCommand = function() {
@@ -228,11 +283,9 @@ JiraCli.prototype.commentCommand = function() {
 
 }
 
-/**
- * Shows the first of the "In progress" task
- */
-JiraCli.prototype.focusCommand = function() {
-
+JiraCli.prototype.commentCommand.help = function() {
+    console.log("It adds a comment to an issue");
+    console.log("NOT IMPLEMENTED");
 }
 
 /**
@@ -240,6 +293,22 @@ JiraCli.prototype.focusCommand = function() {
  */
 JiraCli.prototype.epicCommand = function() {
 
+}
+
+JiraCli.prototype.epicCommand.help = function() {
+    console.log("It assigns an issue to an epic");
+    console.log("Use: jira-cli assign <key> <epic key>");
+    console.log("NOT IMPLEMENTED");
+}
+
+JiraCli.prototype.assignCommand = function() {
+
+}
+
+JiraCli.prototype.assignCommand.help = function() {
+    console.log("It assigns an issue to a user");
+    console.log("Use: jira-cli assign <key> <username>");
+    console.log("NOT IMPLEMENTED");
 }
 
 // ------ Utils section ------
@@ -255,5 +324,19 @@ JiraCli.prototype.__setEpic = function(issueKeys, epicKey) {
 
     sh.run("curl --user " + nconf.get("credentials:user") + ":" + nconf.get("credentials:password") + " -d '" + json +"' -X PUT -H \"Content-Type: application/json\" https://" + nconf.get("credentials:host") + "/rest/greenhopper/1.0/epics/" + epicKey + "/add");
 };
+
+
+// Polyfills 
+if (!String.prototype.endsWith) {
+  String.prototype.endsWith = function(searchString, position) {
+      var subjectString = this.toString();
+      if (typeof position !== 'number' || !isFinite(position) || Math.floor(position) !== position || position > subjectString.length) {
+        position = subjectString.length;
+      }
+      position -= searchString.length;
+      var lastIndex = subjectString.indexOf(searchString, position);
+      return lastIndex !== -1 && lastIndex === position;
+  };
+}
 
 module.exports = JiraCli;
